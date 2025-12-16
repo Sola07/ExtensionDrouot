@@ -1,0 +1,157 @@
+/* Drouot Monitor - Content Script Styles */
+
+/* Badge */
+.drouot-monitor-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.drouot-monitor-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Badge variants */
+.drouot-monitor-badge.dm-new {
+  background: #DD2925;
+  color: white;
+}
+
+.drouot-monitor-badge.dm-favorite {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.drouot-monitor-badge.dm-seen {
+  background: rgba(255, 255, 255, 0.9);
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+/* Action buttons */
+.drouot-monitor-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.drouot-monitor-action-btn {
+  background: rgba(255, 255, 255, 0.3);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  color: inherit;
+}
+
+.drouot-monitor-action-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.drouot-monitor-action-btn:active {
+  transform: scale(0.95);
+}
+
+/* Container highlighting */
+.dm-highlight-new {
+  outline: 3px solid #DD2925 !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(221, 41, 37, 0.3) !important;
+  animation: dm-pulse 2s ease-in-out infinite;
+}
+
+.dm-highlight-favorite {
+  outline: 3px solid #f5576c !important;
+  outline-offset: 2px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(245, 87, 108, 0.3) !important;
+}
+
+.dm-highlight-seen {
+  opacity: 0.7;
+  filter: grayscale(0.3);
+}
+
+/* Pulse animation for NEW items */
+@keyframes dm-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(221, 41, 37, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(221, 41, 37, 0.5);
+  }
+}
+
+/* Re-scrape button */
+.drouot-monitor-rescrape-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #DD2925;
+  color: white;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drouot-monitor-rescrape-btn:hover {
+  transform: rotate(180deg) scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.drouot-monitor-rescrape-btn:active {
+  transform: rotate(180deg) scale(0.95);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .drouot-monitor-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+    top: 5px;
+    right: 5px;
+  }
+
+  .drouot-monitor-action-btn {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+  }
+
+  .drouot-monitor-rescrape-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    bottom: 15px;
+    right: 15px;
+  }
+}
