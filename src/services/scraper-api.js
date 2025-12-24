@@ -3,10 +3,13 @@
  * Intercepts API calls to get complete lot data with auction houses
  */
 
+import { getCityForAuctionHouseId, batchFetchCities } from './auction-house-service.js';
+
 /**
  * Parse API response and extract lots with auction house mapping
+ * Now async to fetch cities dynamically
  */
-export function parseApiResponse(apiData) {
+export async function parseApiResponse(apiData) {
   console.log('[Drouot Monitor] Parsing API response...');
 
   if (!apiData || !apiData.lots || !Array.isArray(apiData.lots)) {
@@ -24,9 +27,29 @@ export function parseApiResponse(apiData) {
 
   console.log(`[Drouot Monitor] Found ${Object.keys(auctionHouseMap).length} auction houses in map`);
 
-  // Transform API lots to our format
+  // Collect unique auction houses for batch city fetching
+  const uniqueHouses = [];
+  const seenIds = new Set();
+
+  apiData.lots.forEach(apiLot => {
+    if (apiLot.auctioneerId && !seenIds.has(apiLot.auctioneerId)) {
+      seenIds.add(apiLot.auctioneerId);
+      uniqueHouses.push({
+        id: apiLot.auctioneerId,
+        name: auctionHouseMap[apiLot.auctioneerId] || 'Drouot'
+      });
+    }
+  });
+
+  // Batch fetch cities for all auction houses
+  console.log(`[Drouot Monitor] Fetching cities for ${uniqueHouses.length} auction houses...`);
+  const cityMap = await batchFetchCities(uniqueHouses);
+  console.log(`[Drouot Monitor] Retrieved ${cityMap.size} cities`);
+
+  // Transform API lots to our format with cities
   const lots = apiData.lots.map(apiLot => {
-    const lot = transformApiLot(apiLot, auctionHouseMap);
+    const city = cityMap.get(apiLot.auctioneerId) || null;
+    const lot = transformApiLot(apiLot, auctionHouseMap, city);
     return lot;
   });
 
@@ -34,10 +57,15 @@ export function parseApiResponse(apiData) {
 
   // Log some auction house stats
   const houseCounts = {};
+  const cityCounts = {};
   lots.forEach(lot => {
     houseCounts[lot.auctionHouse] = (houseCounts[lot.auctionHouse] || 0) + 1;
+    if (lot.city) {
+      cityCounts[lot.city] = (cityCounts[lot.city] || 0) + 1;
+    }
   });
   console.log('[Drouot Monitor] Auction houses found:', houseCounts);
+  console.log('[Drouot Monitor] Cities found:', cityCounts);
 
   return lots;
 }
@@ -45,13 +73,13 @@ export function parseApiResponse(apiData) {
 /**
  * Transform single API lot to our lot format
  */
-function transformApiLot(apiLot, auctionHouseMap) {
+function transformApiLot(apiLot, auctionHouseMap, city = null) {
   // Get auction house name from map
   const auctionHouse = auctionHouseMap[apiLot.auctioneerId] || 'Drouot';
 
-  // Build image URL
+  // Build image URL with CDN format
   const imageUrl = apiLot.photo
-    ? `https://dam.drouot.com/${apiLot.photo.path}`
+    ? `https://cdn.drouot.com/d/image/lot?size=ftall&path=${apiLot.photo.path}`
     : '';
 
   // Build lot URL
@@ -76,6 +104,7 @@ function transformApiLot(apiLot, auctionHouseMap) {
     auctionDate: auctionDate,
     auctionHouse: auctionHouse,
     auctionHouserId: apiLot.auctioneerId,
+    city: city,
     auctionLocation: apiLot.timezone || '',
     saleType: apiLot.saleType || 'LIVE',
     saleStatus: apiLot.saleStatus || 'CREATED',
@@ -110,12 +139,10 @@ function extractTitle(description) {
  * Extract category from API lot
  */
 function extractCategory(apiLot) {
-  // Try to extract from attributes or other fields
   if (apiLot.attributes && apiLot.attributes.category) {
     return apiLot.attributes.category;
   }
 
-  // Could also map based on saleId or other criteria
   return '';
 }
 

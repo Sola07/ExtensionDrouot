@@ -1,5 +1,5 @@
 import { storage } from './src/services/storage.js';
-import { matchesFilters, calculateMatchScore, getMatchReasons } from './src/services/filter.js';
+import { matchesFilters, calculateMatchScore, getMatchReasons, areFiltersEmpty } from './src/services/filter.js';
 import { sendToAllTabs, sendToPopup } from './src/services/messaging.js';
 import { MessageType, ItemState } from './src/constants.js';
 
@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   switch (message.type) {
     case MessageType.NEW_LOTS:
-      handleNewLots(message.lots, message.isEnriched).then(sendResponse);
+      handleNewLots(message.lots, message.isEnriched, message.skipFilters).then(sendResponse);
       return true; // Async response
 
     case MessageType.UPDATE_STATE:
@@ -41,6 +41,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleScrapingError(message).then(sendResponse);
       return true;
 
+    case MessageType.FETCH_AUCTION_HOUSE_PAGE:
+      handleFetchAuctionHousePage(message.url).then(sendResponse);
+      return true;
+
+    case MessageType.CLEAR_DATA:
+      handleClearAllLots().then(sendResponse);
+      return true;
+
     default:
       sendResponse({ success: false, error: 'Unknown message type' });
   }
@@ -49,8 +57,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Process new lots from content script
  */
-async function handleNewLots(newLots, isEnriched = false) {
-  console.log(`[Drouot Monitor] Processing ${newLots.length} ${isEnriched ? 'enriched' : 'new'} lots`);
+async function handleNewLots(newLots, isEnriched = false, skipFilters = false) {
+  console.log(`[Drouot Monitor] Processing ${newLots.length} ${isEnriched ? 'enriched' : 'new'} lots${skipFilters ? ' (no filtering)' : ''}`);
 
   try {
     // Get existing lots and filters
@@ -100,10 +108,10 @@ async function handleNewLots(newLots, isEnriched = false) {
           updatedCount++;
         }
       } else {
-        // New lot - check if it matches filters
-        const matches = matchesFilters(lot, filters);
+        // New lot - check if it matches filters (unless skipFilters is true)
+        const matches = skipFilters || matchesFilters(lot, filters);
 
-        if (matches) {
+        if (matches || skipFilters) {
           // Calculate score and reasons
           lot.matchScore = calculateMatchScore(lot, filters);
           lot.matchReason = getMatchReasons(lot, filters);
@@ -116,12 +124,16 @@ async function handleNewLots(newLots, isEnriched = false) {
 
           addedCount++;
 
-          console.log(`[Drouot Monitor] New matching lot: ${lot.title} (score: ${lot.matchScore})`);
+          if (addedCount <= 5 || addedCount % 50 === 0) {
+            console.log(`[Drouot Monitor] New lot ${addedCount}: ${lot.title}`);
+          }
 
-          // Check for high-score notification
-          const prefs = await storage.getPreferences();
-          if (prefs.notifyOnHighScore && lot.matchScore >= prefs.highScoreThreshold) {
-            showNotification(lot);
+          // Check for high-score notification (only if not skipping filters)
+          if (!skipFilters) {
+            const prefs = await storage.getPreferences();
+            if (prefs.notifyOnHighScore && lot.matchScore >= prefs.highScoreThreshold) {
+              showNotification(lot);
+            }
           }
         }
       }
@@ -188,6 +200,7 @@ async function getNewCount() {
 async function getItems(filter = 'new') {
   try {
     let items = [];
+    const filters = await storage.getFilters();
 
     switch (filter) {
       case 'new':
@@ -204,6 +217,23 @@ async function getItems(filter = 'new') {
         break;
       default:
         items = await storage.getNewItems();
+    }
+
+    const filtersActive = filters.enabled && !areFiltersEmpty(filters);
+    const shouldApplyFilters = filtersActive && (filter === 'new' || filter === 'all');
+    if (shouldApplyFilters) {
+      items = items.filter(item => matchesFilters(item, filters));
+    }
+
+    if (filter === 'all') {
+      items = items.sort((a, b) => {
+        const orderA = a.listOrder ?? Number.MAX_SAFE_INTEGER;
+        const orderB = b.listOrder ?? Number.MAX_SAFE_INTEGER;
+        if (orderA === orderB) {
+          return (a.firstSeenAt || 0) - (b.firstSeenAt || 0);
+        }
+        return orderA - orderB;
+      });
     }
 
     return { success: true, items };
@@ -278,6 +308,52 @@ async function handleScrapingError(errorData) {
 }
 
 /**
+ * Fetch auction house page HTML (bypasses CORS from content script)
+ */
+async function handleFetchAuctionHousePage(url) {
+  console.log(`[Drouot Monitor] Background fetching: ${url}`);
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.warn(`[Drouot Monitor] Fetch failed with status: ${response.status}`);
+      return {
+        success: false,
+        error: `HTTP ${response.status}`
+      };
+    }
+
+    const html = await response.text();
+
+    return {
+      success: true,
+      html: html
+    };
+
+  } catch (error) {
+    console.error('[Drouot Monitor] Error fetching page:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+async function handleClearAllLots() {
+  try {
+    await storage.clearLots();
+    await updateBadge();
+    await sendToAllTabs(MessageType.REFRESH_UI);
+    await sendToPopup(MessageType.REFRESH_UI);
+    return { success: true };
+  } catch (error) {
+    console.error('[Drouot Monitor] Error clearing lots:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/** 
  * Update extension badge with NEW count
  */
 async function updateBadge() {

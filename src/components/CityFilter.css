@@ -1,60 +1,60 @@
-/* Quick Filter Component - Compact & Scrollable */
+/* City Filter Component - Compact & Scrollable */
 
-.quick-filter {
+.city-filter {
   background: white;
   border-bottom: 1px solid #e9ecef;
   padding: 12px;
-  max-height: 140px; /* Limiter la hauteur */
+  max-height: 140px;
 }
 
-.quick-filter-header {
+.city-filter-header {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
 }
 
-.filter-icon {
+.city-filter .filter-icon {
   font-size: 16px;
 }
 
-.filter-title {
+.city-filter .filter-title {
   font-size: 12px;
   font-weight: 600;
   color: #333;
 }
 
 /* Boutons en scroll horizontal ET vertical limité */
-.quick-filter-buttons {
+.city-filter-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 80px; /* Limiter à 2-3 lignes */
-  overflow-y: auto; /* Scroll vertical si nécessaire */
+  max-height: 80px;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
 /* Scrollbar personnalisée pour le filtre */
-.quick-filter-buttons::-webkit-scrollbar {
+.city-filter-buttons::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
-.quick-filter-buttons::-webkit-scrollbar-track {
+.city-filter-buttons::-webkit-scrollbar-track {
   background: #f5f5f5;
   border-radius: 3px;
 }
 
-.quick-filter-buttons::-webkit-scrollbar-thumb {
+.city-filter-buttons::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 3px;
 }
 
-.quick-filter-buttons::-webkit-scrollbar-thumb:hover {
+.city-filter-buttons::-webkit-scrollbar-thumb:hover {
   background: #999;
 }
 
-.filter-button {
+.city-filter .filter-button {
   padding: 6px 12px;
   background: #f8f9fa;
   border: 1px solid #e9ecef;
@@ -65,24 +65,24 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  flex-shrink: 0; /* Ne pas rétrécir les boutons */
+  flex-shrink: 0;
 }
 
-.filter-button:hover {
+.city-filter .filter-button:hover {
   background: #e9ecef;
   border-color: #dee2e6;
   transform: translateY(-1px);
 }
 
-.filter-button.active {
-  background: #DD2925;
+.city-filter .filter-button.active {
+  background: #2196F3;
   color: white;
-  border-color: #DD2925;
+  border-color: #2196F3;
   font-weight: 600;
-  box-shadow: 0 2px 4px rgba(221, 41, 37, 0.2);
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
 }
 
-.filter-info {
+.city-filter .filter-info {
   margin-top: 8px;
   padding: 6px 10px;
   background: #e3f2fd;

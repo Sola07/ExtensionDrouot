@@ -271,7 +271,8 @@ class StorageService {
     if (this.cache.filters) return this.cache.filters;
 
     const result = await chrome.storage.local.get([StorageKey.FILTERS]);
-    const filters = result[StorageKey.FILTERS] || DEFAULT_FILTERS;
+    const storedFilters = result[StorageKey.FILTERS] || {};
+    const filters = { ...DEFAULT_FILTERS, ...storedFilters };
 
     this.cache.filters = filters;
     return filters;
@@ -376,6 +377,25 @@ class StorageService {
   async clearAllData() {
     await chrome.storage.local.clear();
     this.cache = { filters: null, preferences: null };
+  }
+
+  async clearLots() {
+    const filters = await this.getFilters();
+    const prefs = await this.getPreferences();
+
+    await chrome.storage.local.clear();
+
+    await chrome.storage.local.set({
+      [StorageKey.FILTERS]: filters,
+      [StorageKey.PREFERENCES]: prefs
+    });
+
+    this.cache = {
+      filters,
+      preferences: prefs
+    };
+
+    await this.updateCounts();
   }
 
   // === INITIALIZATION ===

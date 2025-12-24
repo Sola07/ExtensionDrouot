@@ -28,6 +28,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected-api-bridge.js"],
+      "matches": ["*://*.drouot.com/*"]
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

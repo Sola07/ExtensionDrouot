@@ -27,16 +27,9 @@ export default function QuickFilter({ items, onFilterChange }) {
   }, [items]);
 
   useEffect(() => {
-    // Apply filter when selection changes
-    if (showAll) {
-      onFilterChange(items);
-    } else {
-      const filtered = items.filter(item =>
-        selectedHouses.has(item.auctionHouse)
-      );
-      onFilterChange(filtered);
-    }
-  }, [selectedHouses, showAll, items]);
+    // Notify parent of filter changes
+    onFilterChange(selectedHouses, showAll);
+  }, [selectedHouses, showAll]);
 
   function handleToggleHouse(house) {
     const newSelected = new Set(selectedHouses);

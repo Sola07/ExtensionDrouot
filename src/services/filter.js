@@ -67,7 +67,16 @@ export function matchesFilters(lot, filters) {
     }
   }
 
-  // 8. Only with images
+  // 8. City filter
+  if (filters.cities && filters.cities.length > 0) {
+    const lotCity = (lot.city || '').toLowerCase();
+    const hasCityMatch = filters.cities.some(city => city.toLowerCase() === lotCity);
+    if (!hasCityMatch) {
+      return false;
+    }
+  }
+
+  // 9. Only with images
   if (filters.onlyWithImages && !lot.imageUrl) {
     return false;
   }
@@ -110,6 +119,14 @@ export function getMatchReasons(lot, filters) {
   // Auction house
   if (filters.auctionHouses.length > 0 && filters.auctionHouses.includes(lot.auctionHouse)) {
     reasons.push(`Maison de vente: ${lot.auctionHouse}`);
+  }
+
+  // City
+  if (filters.cities && filters.cities.length > 0) {
+    const lotCity = lot.city || 'Non spécifié';
+    if (filters.cities.some(city => city.toLowerCase() === lotCity.toLowerCase())) {
+      reasons.push(`Ville: ${lotCity}`);
+    }
   }
 
   return reasons;
@@ -186,6 +203,14 @@ export function calculateMatchScore(lot, filters) {
     score += 10;
   }
 
+  // City match
+  if (filters.cities && filters.cities.length > 0) {
+    const lotCity = (lot.city || '').toLowerCase();
+    if (filters.cities.some(city => city.toLowerCase() === lotCity)) {
+      score += 10;
+    }
+  }
+
   // Cap at 100
   return Math.min(100, Math.round(score));
 }
@@ -197,14 +222,23 @@ export function calculateMatchScore(lot, filters) {
  * @returns {Object[]} - Filtered lots with scores
  */
 export function filterLots(lots, filters) {
-  return lots
+  const filtered = lots
     .filter(lot => matchesFilters(lot, filters))
     .map(lot => ({
       ...lot,
       matchScore: calculateMatchScore(lot, filters),
       matchReason: getMatchReasons(lot, filters)
-    }))
-    .sort((a, b) => b.matchScore - a.matchScore); // Sort by score descending
+    }));
+
+  if (filters.sortMode === 'estimate_asc') {
+    return filtered.sort((a, b) => {
+      const avgA = getAveragePrice(a.estimateMin, a.estimateMax) || Infinity;
+      const avgB = getAveragePrice(b.estimateMin, b.estimateMax) || Infinity;
+      return avgA - avgB;
+    });
+  }
+
+  return filtered.sort((a, b) => b.matchScore - a.matchScore);
 }
 
 /**
@@ -216,6 +250,7 @@ export function areFiltersEmpty(filters) {
   return !filters.enabled ||
     (filters.categories.length === 0 &&
      filters.includeKeywords.length === 0 &&
+     (!filters.cities || filters.cities.length === 0) &&
      filters.auctionHouses.length === 0 &&
      filters.priceMin === 0 &&
      filters.priceMax === 999999);
@@ -239,6 +274,10 @@ export function getFilterSummary(filters) {
 
   if (filters.auctionHouses.length > 0) {
     parts.push(`${filters.auctionHouses.length} maison(s) de vente`);
+  }
+
+  if (filters.cities && filters.cities.length > 0) {
+    parts.push(`${filters.cities.length} ville(s)`);
   }
 
   if (filters.priceMin > 0 || filters.priceMax < 999999) {

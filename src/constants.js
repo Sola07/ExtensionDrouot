@@ -14,7 +14,10 @@ export const MessageType = {
   GET_ITEMS: 'GET_ITEMS',
   UPDATE_FILTERS: 'UPDATE_FILTERS',
   SCRAPING_ERROR: 'SCRAPING_ERROR',
-  REFRESH_UI: 'REFRESH_UI'
+  REFRESH_UI: 'REFRESH_UI',
+  FETCH_AUCTION_HOUSE_PAGE: 'FETCH_AUCTION_HOUSE_PAGE',
+  CLEAR_DATA: 'CLEAR_DATA',
+  FULL_SEARCH: 'FULL_SEARCH'
 };
 
 // Storage keys
@@ -57,6 +60,8 @@ export const DEFAULT_FILTERS = {
   categories: [],
   includeKeywords: [],
   excludeKeywords: [],
+  cities: [],
+  sortMode: 'default',
   priceMin: 0,
   priceMax: 999999,
   dateFrom: Date.now(),
