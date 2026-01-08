@@ -12,98 +12,6 @@ const BRIDGE_TYPE = 'DROUOT_MONITOR_API_RESPONSE';
 
 console.log('[Drouot Monitor] API Interceptor loaded on', window.location.href);
 
-let isIntercepting = false;
-
-/**
- * Setup API interception by injecting a script in the page context
- * so fetch/XHR overrides run in the same world as Drouot's scripts.
- */
-export function setupApiInterception() {
-  if (isIntercepting) {
-    console.log('[Drouot Monitor] API interception already active');
-    return;
-  }
-
-  console.log('[Drouot Monitor] Setting up API interception bridge...');
-  injectInterceptionScript();
-  setupBridgeListener();
-
-  isIntercepting = true;
-  console.log('[Drouot Monitor] ✅ API interception bridge ready');
-}
-
-/**
- * Historical alias kept for content.js which expects both calls.
- * All interception is now handled by the injected script.
- */
-export function setupXhrInterception() {
-  if (!isIntercepting) {
-    setupApiInterception();
-    return;
-  }
-
-  console.log('[Drouot Monitor] XHR interception already handled by bridge');
-}
-
-/**
- * Listen for messages sent from the injected script.
- */
-function setupBridgeListener() {
-  window.addEventListener('message', async event => {
-    if (event.source !== window) return;
-
-    const { data } = event;
-    if (!data || data.source !== BRIDGE_SOURCE || data.type !== BRIDGE_TYPE) {
-      return;
-    }
-
-    const { url, body } = data.payload || {};
-    if (typeof url !== 'string' || !body) return;
-    if (!isApiResponse(url)) return;
-
-    try {
-      const apiData = JSON.parse(body);
-      console.log("apiData", apiData);
-
-      debugApiStructure(apiData);
-
-      // parseApiResponse is now async (fetches cities)
-      const lots = await parseApiResponse(apiData);
-      console.log("lots", lots);
-
-      if (lots.length === 0) return;
-
-      console.log(`[Drouot Monitor] ✅ Extracted ${lots.length} lots from intercepted API`);
-      await sendToBackground(MessageType.NEW_LOTS, {
-        lots,
-        isEnriched: true
-      });
-    } catch (error) {
-      console.error('[Drouot Monitor] Error processing intercepted API response:', error);
-    }
-  });
-}
-
-/**
- * Inject a script tag sourced from the extension so CSP restrictions
- * on inline scripts do not block the interception bridge.
- */
-function injectInterceptionScript() {
-  const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('injected-api-bridge.js');
-  script.dataset.bridgeSource = BRIDGE_SOURCE;
-  script.dataset.bridgeType = BRIDGE_TYPE;
-  script.async = false;
-
-  script.onload = () => script.remove();
-  script.onerror = error => {
-    console.error('[Drouot Monitor] Failed to inject API bridge script', error);
-    script.remove();
-  };
-
-  (document.head || document.documentElement).appendChild(script);
-}
-
 /**
  * Perform a full search with pagination
  * Fetches ALL results across all pages for a given search query
@@ -263,7 +171,7 @@ export function extractSearchQuery() {
     console.log('[Drouot Monitor] ✅ Extracted from URL params:', query);
     return query.trim();
   }
-
+  // this seems unused
   // PRIORITY 2: Check for /search/ or /recherche/ URLs
   if (url.includes('/search/') || url.includes('/recherche/')) {
     // Try to extract from path (e.g., /search/omega)
@@ -285,18 +193,8 @@ export function extractSearchQuery() {
 export function isSearchPage() {
   const url = window.location.href;
   const pathname = window.location.pathname;
-
-  // Check for /s or /search or /recherche paths
-  const isSearch = pathname.includes('/s') ||
-                   url.includes('/search/') ||
-                   url.includes('/recherche/');
+  const isSearch = pathname.includes('/s')
 
   console.log('[Drouot Monitor] Is search page?', isSearch, 'Path:', pathname);
   return isSearch;
-}
-
-// Auto-setup on load
-if (window.location.href.includes('drouot.com')) {
-  setupApiInterception();
-  setupXhrInterception();
 }

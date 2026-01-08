@@ -1,7 +1,4 @@
-import { scrapeLots, isListingPage, isDetailPage as isGenericDetailPage, scrapeSingleLot } from '../src/services/scraper.js';
-import { scrapeDrouotPage, debugPageStructure } from '../src/services/scraper-drouot.js';
-import { isDetailPage } from '../src/services/scraper-detail.js';
-import { setupApiInterception, setupXhrInterception, performFullSearch, isSearchPage, extractSearchQuery } from './content-api.js';
+import { performFullSearch, isSearchPage, extractSearchQuery } from './content-api.js';
 import { sendToBackground } from '../src/services/messaging.js';
 import { MessageType, ItemState } from '../src/constants.js';
 
@@ -14,24 +11,7 @@ const useApiMode = isDrouot; // Use API mode for Drouot, DOM scraping for others
 
 console.log('[Drouot Monitor] Is Drouot site?', isDrouot);
 
-if (isDrouot) {
-  console.log('[Drouot Monitor] 🚀 Activating API interception mode (DOM scraping disabled)');
 
-  try {
-    setupApiInterception();
-    console.log('[Drouot Monitor] ✅ API interception setup complete');
-  } catch (error) {
-    console.error('[Drouot Monitor] ❌ Error setting up API interception:', error);
-  }
-
-  try {
-    setupXhrInterception();
-    console.log('[Drouot Monitor] ✅ XHR interception setup complete');
-  } catch (error) {
-    console.error('[Drouot Monitor] ❌ Error setting up XHR interception:', error);
-  }
-
-  // Check if this is a search page on initial load
   console.log('[Drouot Monitor] About to call checkAndHandleSearchPage()...');
   try {
     checkAndHandleSearchPage();
@@ -54,6 +34,7 @@ if (isDrouot) {
     }
   });
 
+  // Seems unused
   if (document.querySelector('title')) {
     urlObserver.observe(document.querySelector('title'), {
       childList: true,
@@ -81,20 +62,16 @@ if (isDrouot) {
       checkAndHandleSearchPage();
     }, 500);
   });
-}
+
 
 /**
  * Check if current page is a search page and handle it
  */
 function checkAndHandleSearchPage() {
-  console.log('[Drouot Monitor] ========================================');
   console.log('[Drouot Monitor] checkAndHandleSearchPage() called');
-  console.log('[Drouot Monitor] Current URL:', window.location.href);
-  console.log('[Drouot Monitor] Current pathname:', window.location.pathname);
-  console.log('[Drouot Monitor] Checking if search page...');
+
 
   const searchPageResult = isSearchPage();
-  console.log('[Drouot Monitor] isSearchPage() returned:', searchPageResult);
 
   if (searchPageResult) {
     console.log('[Drouot Monitor] ✅ This is a search page, extracting query...');
@@ -282,89 +259,6 @@ function handleProgressUpdate(event) {
   updateSearchIndicator(`Chargement: ${current}/${total} lots (page ${currentPage}/${totalPages}) - ${percentage}%`);
 }
 
-/**
- * Main scraping function
- */
-async function scrapePage() {
-  console.log('[Drouot Monitor] Starting page scrape...');
-
-  try {
-    let lots = [];
-
-    // On detail pages, preserve the active search and do not send new lots
-    if (isDetailPage()) {
-      console.log('[Drouot Monitor] Detail page detected - preserving current search results');
-      return;
-    }
-
-    // Otherwise scrape listing page
-    lots = scrapeDrouotPage(document);
-
-    if (lots.length === 0) {
-      console.log('[Drouot Monitor] Drouot scraper found nothing, trying generic scraper...');
-
-      if (isGenericDetailPage()) {
-        console.log('[Drouot Monitor] Generic detail page detected - preserving search results');
-        return;
-      } else if (isListingPage()) {
-        console.log('[Drouot Monitor] Listing page detected');
-        lots = scrapeLots(document);
-      } else {
-        // Generic scraping attempt
-        console.log('[Drouot Monitor] Generic page, attempting scrape');
-        lots = scrapeLots(document);
-      }
-    }
-
-    if (lots.length === 0) {
-      console.warn('[Drouot Monitor] No lots found on page');
-      console.warn('[Drouot Monitor] Run window.drouotMonitorDebug() in console for structure analysis');
-      return;
-    }
-
-    console.log(`[Drouot Monitor] Found ${lots.length} lots`);
-    scrapedLots = lots;
-
-    // Send to background for processing
-    const response = await sendToBackground(MessageType.NEW_LOTS, { lots });
-
-    if (response.success) {
-      console.log(`[Drouot Monitor] Background processed: ${response.added} new, ${response.updated} updated`);
-
-      // Add visual indicators
-      await addBadgesToPage();
-    }
-  } catch (error) {
-    console.error('[Drouot Monitor] Scraping error:', error);
-
-    // Report error to background
-    await sendToBackground(MessageType.SCRAPING_ERROR, {
-      error: error.message,
-      url: window.location.href
-    });
-  }
-}
-
-/**
- * Add visual badges to lots on the page
- */
-async function addBadgesToPage() {
-  console.log('[Drouot Monitor] Adding badges to page...');
-
-  // Get lot states from background
-  const response = await sendToBackground(MessageType.GET_ITEMS, { filter: 'all' });
-  if (!response.success) return;
-
-  const allLots = response.items;
-
-  // Create map of lot ID -> state
-  lotStates = {};
-  for (const lot of allLots) {
-    if (lot.state) {
-      lotStates[lot.id] = lot.state.state;
-    }
-  }
-
   // Find lot containers on page
   const containers = document.querySelectorAll('.lot-item, .auction-lot, [data-lot-id], article[class*="lot"]');
 
@@ -375,16 +269,10 @@ async function addBadgesToPage() {
 
     const state = lotStates[lot.id];
     if (!state) continue;
-
-    // Add badge
-    addBadge(container, state, lot);
-
-    // Add highlighting
-    highlightContainer(container, state);
   }
 
   console.log(`[Drouot Monitor] Added badges to ${containers.length} containers`);
-}
+
 
 /**
  * Find scraped lot matching a container
@@ -400,39 +288,6 @@ function findLotForContainer(container) {
   );
 }
 
-/**
- * Add state badge to container
- */
-function addBadge(container, state, lot) {
-  // Remove existing badge
-  const existingBadge = container.querySelector('.drouot-monitor-badge');
-  if (existingBadge) {
-    existingBadge.remove();
-  }
-
-  // Create badge
-  const badge = document.createElement('div');
-  badge.className = 'drouot-monitor-badge';
-
-  switch (state) {
-    case ItemState.NEW:
-      badge.textContent = '🆕 Nouveau';
-      badge.classList.add('dm-new');
-      break;
-    case ItemState.FAVORITE:
-      badge.textContent = '⭐ Favori';
-      badge.classList.add('dm-favorite');
-      break;
-    case ItemState.SEEN:
-      badge.textContent = '👀 Vu';
-      badge.classList.add('dm-seen');
-      break;
-    case ItemState.IGNORED:
-      badge.classList.add('dm-ignored');
-      badge.style.display = 'none';
-      break;
-  }
-
   // Add quick action buttons
   const actions = document.createElement('div');
   actions.className = 'drouot-monitor-actions';
@@ -444,7 +299,6 @@ function addBadge(container, state, lot) {
         state: ItemState.SEEN
       });
       badge.remove();
-      highlightContainer(container, ItemState.SEEN);
     });
     actions.appendChild(seenBtn);
   }
@@ -458,7 +312,6 @@ function addBadge(container, state, lot) {
         lotId: lot.id,
         state: newState
       });
-      await addBadgesToPage(); // Refresh
     }
   );
   actions.appendChild(favBtn);
@@ -468,7 +321,7 @@ function addBadge(container, state, lot) {
   // Position badge
   container.style.position = 'relative';
   container.insertBefore(badge, container.firstChild);
-}
+
 
 /**
  * Create action button
@@ -485,80 +338,3 @@ function createActionButton(text, title, onClick) {
   };
   return btn;
 }
-
-/**
- * Highlight container based on state
- */
-function highlightContainer(container, state) {
-  // Remove existing highlights
-  container.classList.remove('dm-highlight-new', 'dm-highlight-favorite', 'dm-highlight-seen');
-
-  switch (state) {
-    case ItemState.NEW:
-      container.classList.add('dm-highlight-new');
-      break;
-    case ItemState.FAVORITE:
-      container.classList.add('dm-highlight-favorite');
-      break;
-    case ItemState.SEEN:
-      container.classList.add('dm-highlight-seen');
-      break;
-  }
-}
-
-/**
- * Debounce helper
- */
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
-
-// Debounced scrape function
-const debouncedScrape = debounce(scrapePage, 500);
-
-// Listen for messages from background
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === MessageType.REFRESH_UI) {
-    console.log('[Drouot Monitor] Refreshing UI...');
-    addBadgesToPage();
-  }
-  sendResponse({ success: true });
-});
-
-// Scrape on page load (only if NOT using API mode)
-if (!useApiMode) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scrapePage);
-  } else {
-    scrapePage();
-  }
-
-  // Watch for DOM changes (for SPA navigation)
-  const observer = new MutationObserver(debouncedScrape);
-  observer.observe(document.body, {
-    childList: true,
-    subtree: true
-  });
-} else {
-  console.log('[Drouot Monitor] ℹ️ DOM scraping disabled - using API interception only');
-}
-
-// Add manual scrape button (for debugging - only in DOM mode)
-if (!useApiMode) {
-  const button = document.createElement('button');
-  button.textContent = '🔄';
-  button.title = 'Re-scraper la page';
-  button.className = 'drouot-monitor-rescrape-btn';
-  button.onclick = scrapePage;
-  document.body.appendChild(button);
-}
-
-console.log('[Drouot Monitor] Content script initialized');

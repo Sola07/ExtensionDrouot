@@ -45,7 +45,6 @@ module.exports = {
         { from: 'manifest.json', to: 'manifest.json' },
         { from: 'assets', to: 'assets', noErrorOnMissing: true },
         { from: 'content/content.css', to: 'content.css', noErrorOnMissing: true },
-        { from: 'content/injected-api-bridge.js', to: 'injected-api-bridge.js', noErrorOnMissing: true }
       ]
     })
   ],
